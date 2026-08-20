@@ -2,92 +2,91 @@
 
 import {
   Aperture,
-  Bot,
+  Atom,
   Camera,
-  Cpu,
-  GalleryHorizontalEnd,
+  CircleDot,
+  Disc3,
+  Focus,
+  Hexagon,
   Image,
-  Images,
+  Orbit,
   Play,
+  Radar,
   RefreshCw,
-  ScanFace,
+  Scan,
+  ScanLine,
   Sparkles,
   Timer,
   Trophy,
-  WandSparkles,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type GameStatus = "ready" | "playing" | "finished";
-type GameTile = {
+type LogoTile = {
   id: string;
-  label: string;
   icon?: LucideIcon;
   target?: boolean;
+  tone?: string;
+  style?: string;
+  rotation?: number;
 };
 
 const GAME_SECONDS = 30;
+const GRID_SIZE = 48;
 
-const decoys: Omit<GameTile, "id">[] = [
-  { label: "Camera", icon: Camera },
-  { label: "AI bot", icon: Bot },
-  { label: "Gallery", icon: Images },
-  { label: "Technology", icon: Cpu },
-  { label: "Magic", icon: WandSparkles },
-  { label: "Portrait AI", icon: ScanFace },
-  { label: "Photo", icon: Image },
-  { label: "Sparkles", icon: Sparkles },
-  { label: "Aperture", icon: Aperture },
-  { label: "Instant", icon: Zap },
-  { label: "Photo gallery", icon: GalleryHorizontalEnd },
+const logoMarks: Array<{ icon: LucideIcon; tone: string; style: string }> = [
+  { icon: Aperture, tone: "red", style: "solid" },
+  { icon: Focus, tone: "ink", style: "ring" },
+  { icon: Camera, tone: "violet", style: "soft" },
+  { icon: Scan, tone: "coral", style: "square" },
+  { icon: Disc3, tone: "ink", style: "solid" },
+  { icon: CircleDot, tone: "rose", style: "ring" },
+  { icon: Aperture, tone: "violet", style: "soft" },
+  { icon: Radar, tone: "slate", style: "ring" },
+  { icon: Hexagon, tone: "coral", style: "solid" },
+  { icon: Orbit, tone: "ink", style: "soft" },
+  { icon: Image, tone: "rose", style: "square" },
+  { icon: Atom, tone: "violet", style: "ring" },
+  { icon: Aperture, tone: "coral", style: "ring" },
+  { icon: ScanLine, tone: "slate", style: "soft" },
+  { icon: Sparkles, tone: "red", style: "solid" },
+  { icon: Focus, tone: "rose", style: "square" },
 ];
 
-const previewTiles: GameTile[] = [
-  { id: "preview-camera", ...decoys[0] },
-  { id: "preview-ai", ...decoys[1] },
-  { id: "preview-target", label: "EventPix", target: true },
-  { id: "preview-gallery", ...decoys[2] },
-  { id: "preview-tech", ...decoys[3] },
-  { id: "preview-magic", ...decoys[4] },
-];
+function makeGrid(round: number, random = true): LogoTile[] {
+  const targetIndex = random ? Math.floor(Math.random() * GRID_SIZE) : 18;
 
-function shuffle<T>(items: T[]) {
-  const result = [...items];
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(Math.random() * (index + 1));
-    [result[index], result[randomIndex]] = [result[randomIndex], result[index]];
-  }
-  return result;
+  return Array.from({ length: GRID_SIZE }, (_, index) => {
+    if (index === targetIndex) {
+      return { id: `${round}-target`, target: true };
+    }
+
+    const markIndex = random
+      ? Math.floor(Math.random() * logoMarks.length)
+      : (index * 7 + 3) % logoMarks.length;
+    const mark = logoMarks[markIndex];
+
+    return {
+      ...mark,
+      id: `${round}-logo-${index}`,
+      rotation: random ? Math.floor(Math.random() * 8) * 45 : (index % 4) * 45,
+    };
+  });
 }
 
-function makeRound(roundNumber: number): GameTile[] {
-  const choices = shuffle(decoys)
-    .slice(0, 5)
-    .map((item, index) => ({
-      ...item,
-      id: `round-${roundNumber}-decoy-${index}`,
-    }));
-
-  const target: GameTile = {
-    id: `round-${roundNumber}-target`,
-    label: "EventPix",
-    target: true,
-  };
-
-  return shuffle([...choices, target]);
-}
+const previewGrid = makeGrid(0, false);
 
 export default function Home() {
   const [status, setStatus] = useState<GameStatus>("ready");
   const [timeLeft, setTimeLeft] = useState(GAME_SECONDS);
   const [score, setScore] = useState(0);
   const [round, setRound] = useState(0);
-  const [tiles, setTiles] = useState<GameTile[]>(previewTiles);
+  const [tiles, setTiles] = useState<LogoTile[]>(previewGrid);
   const [poppedId, setPoppedId] = useState<string | null>(null);
   const [missedId, setMissedId] = useState<string | null>(null);
   const changeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clickLock = useRef(false);
 
   useEffect(() => {
     if (status !== "playing") return;
@@ -95,6 +94,8 @@ export default function Home() {
     const timer = window.setInterval(() => {
       setTimeLeft((current) => {
         if (current <= 1) {
+          if (changeTimer.current) window.clearTimeout(changeTimer.current);
+          clickLock.current = true;
           setStatus("finished");
           return 0;
         }
@@ -115,8 +116,9 @@ export default function Home() {
   function startGame() {
     if (changeTimer.current) window.clearTimeout(changeTimer.current);
     const nextRound = round + 1;
+    clickLock.current = false;
     setRound(nextRound);
-    setTiles(makeRound(nextRound));
+    setTiles(makeGrid(nextRound));
     setScore(0);
     setTimeLeft(GAME_SECONDS);
     setPoppedId(null);
@@ -124,133 +126,85 @@ export default function Home() {
     setStatus("playing");
   }
 
-  function handleTileClick(tile: GameTile) {
-    if (status !== "playing") return;
+  function handleClick(tile: LogoTile) {
+    if (status !== "playing" || clickLock.current) return;
 
     if (!tile.target) {
       setMissedId(tile.id);
-      window.setTimeout(() => setMissedId(null), 240);
+      window.setTimeout(() => setMissedId(null), 180);
       return;
     }
 
+    clickLock.current = true;
     setScore((current) => current + 1);
     setPoppedId(tile.id);
     changeTimer.current = window.setTimeout(() => {
       const nextRound = round + 1;
       setRound(nextRound);
-      setTiles(makeRound(nextRound));
+      setTiles(makeGrid(nextRound));
       setPoppedId(null);
-    }, 130);
+      clickLock.current = false;
+    }, 115);
   }
 
   return (
-    <main>
-      <div className="ambient ambient-one" aria-hidden="true" />
-      <div className="ambient ambient-two" aria-hidden="true" />
+    <main className={`game ${status}`}>
+      <div className="progress" aria-hidden="true">
+        <span style={{ width: `${(timeLeft / GAME_SECONDS) * 100}%` }} />
+      </div>
 
-      <header className="site-header">
-        <a className="brand" href="#game" aria-label="EventPix Click Rush home">
-          <span className="brand-mark">
-            <img src="/eventpix-logo.png" alt="" />
-          </span>
-          <span className="brand-name">Event<span>Pix</span></span>
-        </a>
-        <div className="round-pill">30 SECOND CHALLENGE</div>
-      </header>
+      <div className="hud" aria-live="polite">
+        <span><Timer size={19} aria-hidden="true" /><b>{timeLeft}</b></span>
+        <span className="mini-target" aria-hidden="true"><img src="/eventpix-logo.png" alt="" /></span>
+        <span><Trophy size={19} aria-hidden="true" /><b>{score}</b></span>
+      </div>
 
-      <section className="hero" id="game">
-        <div className="eyebrow"><Zap size={15} fill="currentColor" /> SPEED + FOCUS</div>
-        <h1>Find it. Click it.<br /><em>Beat the clock.</em></h1>
-        <p className="intro">
-          Spot the EventPix logo hiding among the icons. Every hit brings a fresh row—how many can you catch in 30 seconds?
-        </p>
-
-        <div className={`game-shell ${status}`}>
-          <div className="scoreboard" aria-live="polite">
-            <div className="stat-block">
-              <span className="stat-icon coral"><Timer size={20} /></span>
-              <span className="stat-copy">
-                <small>TIME LEFT</small>
-                <strong>{timeLeft}<i>s</i></strong>
-              </span>
-            </div>
-
-            <div className="game-instruction">
-              {status === "playing" ? (
-                <><span className="pulse-dot" /> FIND THE EVENTPIX LOGO</>
-              ) : status === "finished" ? (
-                "TIME’S UP!"
-              ) : (
-                "YOUR TARGET"
-              )}
-            </div>
-
-            <div className="stat-block score-block">
-              <span className="stat-icon purple"><Trophy size={20} /></span>
-              <span className="stat-copy">
-                <small>LOGOS FOUND</small>
-                <strong>{score}</strong>
-              </span>
-            </div>
-          </div>
-
-          <div className="game-board">
-            <div className="tiles" aria-label="Icon choices">
-              {tiles.map((tile) => {
-                const Icon = tile.icon;
-                return (
-                  <button
-                    className={`tile ${tile.target ? "target" : ""} ${poppedId === tile.id ? "popped" : ""} ${missedId === tile.id ? "missed" : ""}`}
-                    key={tile.id}
-                    type="button"
-                    onClick={() => handleTileClick(tile)}
-                    aria-label={tile.target ? "EventPix logo" : tile.label}
-                    disabled={status !== "playing"}
-                  >
-                    {tile.target ? (
-                      <span className="target-logo"><img src="/eventpix-logo.png" alt="EventPix" /></span>
-                    ) : Icon ? (
-                      <Icon size={40} strokeWidth={1.8} aria-hidden="true" />
-                    ) : null}
-                    <span>{tile.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {status !== "playing" && (
-              <div className="game-overlay">
-                {status === "ready" ? (
-                  <>
-                    <span className="overlay-kicker">READY?</span>
-                    <h2>Click only the EventPix logo</h2>
-                    <p>The row refreshes after every correct click.</p>
-                    <button className="primary-button" type="button" onClick={startGame}>
-                      <Play size={19} fill="currentColor" /> Start the rush
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="result-medal"><Trophy size={28} /></span>
-                    <span className="overlay-kicker">FINAL SCORE</span>
-                    <h2>You found <b>{score}</b> {score === 1 ? "logo" : "logos"}!</h2>
-                    <p>{score >= 20 ? "Lightning reflexes. That was seriously fast." : score >= 10 ? "Sharp eyes! Think you can beat it?" : "Good start—your next run can be even faster."}</p>
-                    <button className="primary-button" type="button" onClick={startGame}>
-                      <RefreshCw size={18} /> Play again
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="progress-track" aria-hidden="true">
-            <span style={{ width: `${(timeLeft / GAME_SECONDS) * 100}%` }} />
-          </div>
-        </div>
-
-        <div className="tip"><span>PRO TIP</span> Look for the red camera-shutter mark.</div>
+      <section className="logo-grid" aria-label="Find the EventPix logo">
+        {tiles.map((tile) => {
+          const Icon = tile.icon;
+          return (
+            <button
+              className={`logo-tile ${tile.target ? "target" : ""} ${poppedId === tile.id ? "popped" : ""} ${missedId === tile.id ? "missed" : ""}`}
+              key={tile.id}
+              type="button"
+              onClick={() => handleClick(tile)}
+              disabled={status !== "playing"}
+              aria-label={tile.target ? "EventPix logo" : "Other logo"}
+            >
+              {tile.target ? (
+                <span className="eventpix-mark"><img src="/eventpix-logo.png" alt="EventPix" /></span>
+              ) : Icon ? (
+                <span className={`logo-mark ${tile.tone} ${tile.style}`}>
+                  <Icon
+                    size={38}
+                    strokeWidth={tile.style === "solid" ? 2.4 : 1.9}
+                    style={{ transform: `rotate(${tile.rotation}deg)` }}
+                    aria-hidden="true"
+                  />
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </section>
+
+      {status !== "playing" && (
+        <div className="overlay">
+          {status === "ready" ? (
+            <button className="action-button" type="button" onClick={startGame} aria-label="Start game">
+              <Play size={31} fill="currentColor" />
+            </button>
+          ) : (
+            <div className="final-score">
+              <Trophy size={25} aria-hidden="true" />
+              <strong>{score}</strong>
+              <button className="restart-button" type="button" onClick={startGame} aria-label="Play again">
+                <RefreshCw size={22} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </main>
   );
 }
