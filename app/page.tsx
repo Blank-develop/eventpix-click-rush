@@ -27,6 +27,7 @@ type LogoTile = {
   id: string;
   icon?: LucideIcon;
   target?: boolean;
+  face?: string;
   tone?: string;
   style?: string;
   rotation?: number;
@@ -34,6 +35,7 @@ type LogoTile = {
 
 const GAME_SECONDS = 30;
 const GRID_SIZE = 48;
+const teamFaces = ["/team-1.png", "/team-2.png", "/team-3.png"];
 
 const logoMarks: Array<{ icon: LucideIcon; tone: string; style: string }> = [
   { icon: Aperture, tone: "red", style: "solid" },
@@ -56,10 +58,22 @@ const logoMarks: Array<{ icon: LucideIcon; tone: string; style: string }> = [
 
 function makeGrid(round: number, random = true): LogoTile[] {
   const targetIndex = random ? Math.floor(Math.random() * GRID_SIZE) : 18;
+  const facePositions = random ? new Set<number>() : new Set([5, 28, 41]);
+
+  while (facePositions.size < teamFaces.length) {
+    const position = Math.floor(Math.random() * GRID_SIZE);
+    if (position !== targetIndex) facePositions.add(position);
+  }
+  const faceIndexes = [...facePositions];
 
   return Array.from({ length: GRID_SIZE }, (_, index) => {
     if (index === targetIndex) {
       return { id: `${round}-target`, target: true };
+    }
+
+    const faceIndex = faceIndexes.indexOf(index);
+    if (faceIndex !== -1) {
+      return { id: `${round}-face-${faceIndex}`, face: teamFaces[faceIndex] };
     }
 
     const markIndex = random
@@ -85,6 +99,7 @@ export default function Home() {
   const [tiles, setTiles] = useState<LogoTile[]>(previewGrid);
   const [poppedId, setPoppedId] = useState<string | null>(null);
   const [missedId, setMissedId] = useState<string | null>(null);
+  const [funId, setFunId] = useState<string | null>(null);
   const changeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clickLock = useRef(false);
 
@@ -123,6 +138,7 @@ export default function Home() {
     setTimeLeft(GAME_SECONDS);
     setPoppedId(null);
     setMissedId(null);
+    setFunId(null);
     setStatus("playing");
   }
 
@@ -130,6 +146,11 @@ export default function Home() {
     if (status !== "playing" || clickLock.current) return;
 
     if (!tile.target) {
+      if (tile.face) {
+        setFunId(tile.id);
+        window.setTimeout(() => setFunId(null), 420);
+        return;
+      }
       setMissedId(tile.id);
       window.setTimeout(() => setMissedId(null), 180);
       return;
@@ -164,15 +185,17 @@ export default function Home() {
           const Icon = tile.icon;
           return (
             <button
-              className={`logo-tile ${tile.target ? "target" : ""} ${poppedId === tile.id ? "popped" : ""} ${missedId === tile.id ? "missed" : ""}`}
+              className={`logo-tile ${tile.target ? "target" : ""} ${tile.face ? "face" : ""} ${poppedId === tile.id ? "popped" : ""} ${missedId === tile.id ? "missed" : ""} ${funId === tile.id ? "fun" : ""}`}
               key={tile.id}
               type="button"
               onClick={() => handleClick(tile)}
               disabled={status !== "playing"}
-              aria-label={tile.target ? "EventPix logo" : "Other logo"}
+              aria-label={tile.target ? "EventPix logo" : tile.face ? "Team member" : "Other logo"}
             >
               {tile.target ? (
                 <span className="eventpix-mark"><img src="/eventpix-logo.png" alt="EventPix" /></span>
+              ) : tile.face ? (
+                <span className="team-face"><img src={tile.face} alt="Team member" /></span>
               ) : Icon ? (
                 <span className={`logo-mark ${tile.tone} ${tile.style}`}>
                   <Icon
