@@ -20,7 +20,7 @@ import {
   Trophy,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 type GameStatus = "ready" | "playing" | "finished";
 type LogoTile = {
@@ -36,6 +36,15 @@ type LogoTile = {
 const GAME_SECONDS = 30;
 const GRID_SIZE = 48;
 const teamFaces = ["/team-1.png", "/team-2.png", "/team-3.png"];
+const confettiColors = ["#ed1b3a", "#ffbf3f", "#7c6da8", "#2bb7a9", "#ef756f", "#ffffff"];
+const confettiPieces = Array.from({ length: 80 }, (_, index) => ({
+  left: `${(index * 37) % 101}%`,
+  color: confettiColors[index % confettiColors.length],
+  delay: `${(index % 16) * 0.035}s`,
+  duration: `${2.1 + (index % 9) * 0.12}s`,
+  drift: `${((index * 29) % 180) - 90}px`,
+  spin: `${540 + (index % 5) * 180}deg`,
+}));
 
 const logoMarks: Array<{ icon: LucideIcon; tone: string; style: string }> = [
   { icon: Aperture, tone: "red", style: "solid" },
@@ -210,6 +219,25 @@ export default function Home() {
           );
         })}
       </section>
+
+      {status === "finished" && (
+        <div className="confetti" aria-hidden="true">
+          {confettiPieces.map((piece, index) => (
+            <span
+              className="confetti-piece"
+              key={index}
+              style={{
+                left: piece.left,
+                backgroundColor: piece.color,
+                animationDelay: piece.delay,
+                animationDuration: piece.duration,
+                "--drift": piece.drift,
+                "--spin": piece.spin,
+              } as CSSProperties}
+            />
+          ))}
+        </div>
+      )}
 
       {status !== "playing" && (
         <div className="overlay">

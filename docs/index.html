@@ -71,6 +71,12 @@
       .logo-tile.fun { z-index: 4; animation: face-pop .42s ease; background: rgba(237,27,58,.08); box-shadow: 0 0 0 5px rgba(237,27,58,.1); }
       .overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(250,249,246,.64); backdrop-filter: blur(6px); }
       .overlay[hidden] { display: none; }
+      .confetti { position:fixed; inset:0; z-index:25; overflow:hidden; pointer-events:none; }
+      .confetti-piece { position:absolute; top:-24px; width:9px; height:16px; border-radius:2px; opacity:0; animation-name:confetti-fall; animation-timing-function:cubic-bezier(.2,.7,.35,1); animation-fill-mode:both; }
+      .confetti-piece:nth-child(3n) { width:12px; height:12px; border-radius:50%; }
+      .confetti-piece:nth-child(4n) { width:7px; height:20px; }
+      .finished .overlay { z-index:30; background:transparent; backdrop-filter:none; pointer-events:none; }
+      .finished .final { pointer-events:auto; }
       .action, .restart { display: grid; place-items: center; border: 0; border-radius: 50%; cursor: pointer; background: var(--red); color: #fff; }
       .action { width: 82px; height: 82px; box-shadow: 0 14px 40px rgba(237,27,58,.28); }
       .play-icon { width: 0; height: 0; margin-left: 6px; border-top: 15px solid transparent; border-bottom: 15px solid transparent; border-left: 24px solid #fff; }
@@ -80,10 +86,11 @@
       .restart { width:52px; height:52px; font-size:29px; }
       @keyframes wrong { 0%,100%{transform:translateX(0)} 35%{transform:translateX(-3px)} 70%{transform:translateX(3px)} }
       @keyframes face-pop { 0%,100%{transform:scale(1) rotate(0)} 35%{transform:scale(1.17) rotate(-5deg)} 70%{transform:scale(1.1) rotate(5deg)} }
+      @keyframes confetti-fall { 0%{opacity:0;transform:translate3d(0,-8vh,0) rotate(0)} 8%,88%{opacity:1} 100%{opacity:0;transform:translate3d(var(--drift),112vh,0) rotate(var(--spin))} }
       @media (max-width:780px) { .game{min-height:100svh;padding:74px 14px 18px;align-items:start}.logo-grid{grid-template-columns:repeat(6,minmax(43px,1fr));gap:8px} }
       @media (max-width:500px) { .game{padding-inline:10px}.logo-grid{grid-template-columns:repeat(5,minmax(42px,1fr));gap:7px}.logo-tile{padding:4px;border-width:1.2px} }
       @media (max-height:700px) and (min-width:781px) { .logo-grid{width:min(850px,100%)} }
-      @media (prefers-reduced-motion:reduce) { *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important} }
+      @media (prefers-reduced-motion:reduce) { .confetti{display:none} *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important} }
     </style>
   </head>
   <body>
@@ -106,6 +113,7 @@
         const faces = ["./team-1.png", "./team-2.png", "./team-3.png"];
         const types = ["shutter","lens","focus","gridmark","spark","hex","orbit"];
         const tones = ["red","coral","rose","violet","slate","ink"];
+        const confettiColors = ["#ed1b3a","#ffbf3f","#7c6da8","#2bb7a9","#ef756f","#ffffff"];
         const game = document.getElementById("game");
         const grid = document.getElementById("grid");
         const overlay = document.getElementById("overlay");
@@ -160,6 +168,7 @@
 
         function startGame() {
           clearInterval(interval);
+          document.querySelector(".confetti")?.remove();
           status = "playing";
           score = 0;
           timeLeft = SECONDS;
@@ -207,9 +216,30 @@
           locked = true;
           game.className = "game finished";
           [...grid.children].forEach((tile) => { tile.disabled = true; });
+          launchConfetti();
           overlay.hidden = false;
           overlay.innerHTML = `<div class="final"><span aria-hidden="true">★</span><strong>${score}</strong><button class="restart" type="button" aria-label="Play again">↻</button></div>`;
           overlay.querySelector("button").addEventListener("click", startGame);
+        }
+
+        function launchConfetti() {
+          document.querySelector(".confetti")?.remove();
+          const confetti = document.createElement("div");
+          confetti.className = "confetti";
+          confetti.setAttribute("aria-hidden", "true");
+          for (let index = 0; index < 80; index += 1) {
+            const piece = document.createElement("span");
+            piece.className = "confetti-piece";
+            piece.style.left = `${(index * 37) % 101}%`;
+            piece.style.backgroundColor = confettiColors[index % confettiColors.length];
+            piece.style.animationDelay = `${(index % 16) * .035}s`;
+            piece.style.animationDuration = `${2.1 + (index % 9) * .12}s`;
+            piece.style.setProperty("--drift", `${((index * 29) % 180) - 90}px`);
+            piece.style.setProperty("--spin", `${540 + (index % 5) * 180}deg`);
+            confetti.append(piece);
+          }
+          document.body.append(confetti);
+          setTimeout(() => confetti.remove(), 3600);
         }
 
         document.getElementById("start").addEventListener("click", startGame);

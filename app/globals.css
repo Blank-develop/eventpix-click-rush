@@ -270,6 +270,48 @@ button {
   backdrop-filter: blur(6px);
 }
 
+.confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -24px;
+  width: 9px;
+  height: 16px;
+  border-radius: 2px;
+  opacity: 0;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(.2, .7, .35, 1);
+  animation-fill-mode: both;
+}
+
+.confetti-piece:nth-child(3n) {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.confetti-piece:nth-child(4n) {
+  width: 7px;
+  height: 20px;
+}
+
+.finished .overlay {
+  z-index: 30;
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
+}
+
+.finished .final-score {
+  pointer-events: auto;
+}
+
 .action-button,
 .restart-button {
   display: grid;
@@ -337,6 +379,19 @@ button {
   70% { transform: scale(1.1) rotate(5deg); }
 }
 
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -8vh, 0) rotate(0deg);
+  }
+  8% { opacity: 1; }
+  88% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift), 112vh, 0) rotate(var(--spin));
+  }
+}
+
 @media (max-width: 780px) {
   .game {
     min-height: 100svh;
@@ -378,6 +433,7 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .confetti { display: none; }
   *, *::before, *::after {
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
